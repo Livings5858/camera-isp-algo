@@ -76,6 +76,27 @@ def test_image_show_plt_fake_color():
     img = img / 1024.0  # 归一化到 0-1 之间
     image_show_plt_fake_color(img, width, height, "RGGB")
 
+def test_bayer_cumuhistogram():
+    path = "data/mipi10_4608x3456.raw"
+    height = 3456
+    width = 4608
+    raw_frame = np.fromfile(path, dtype=np.uint8, count=height * width * 5 // 4)
+    img = unpack_mipi_raw10(raw_frame).reshape(height, width)
+    img = img >> 2
+    img = img.astype(np.uint8)
+    R_hist, GR_hist, GB_hist, B_hist = bayer_cumuhistogram(img, "RGGB", max_val=255)
+    show_bayer_cumuhistogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255)
+
+def test_bayer_histogram():
+    path = "data/mipi10_4608x3456.raw"
+    height = 3456
+    width = 4608
+    raw_frame = np.fromfile(path, dtype=np.uint8, count=height * width * 5 // 4)
+    img = unpack_mipi_raw10(raw_frame).reshape(height, width)
+    img = img >> 2
+    img = img.astype(np.uint8)
+    R_hist, GR_hist, GB_hist, B_hist = bayer_histogram(img, "RGGB", max_val=255)
+    show_bayer_histogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255)
 
 def test_cases():
     # test_unpack_mipi_raw10()
@@ -84,7 +105,9 @@ def test_cases():
     # test_image_show_cv2()
     # test_yuv420sp_to_rgb()
     # test_image_show_plt_3d()
-    test_image_show_plt_fake_color()
+    # test_image_show_plt_fake_color()
+    # test_bayer_cumuhistogram()
+    test_bayer_histogram()
 
 if __name__ == "__main__":
     test_cases()

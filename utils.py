@@ -122,6 +122,165 @@ def image_show_plt_fake_color(img, width, height, partten):
     plt.axis("off")
     plt.show()
 
+# 分离Bayer raw通道
+def separate_bayer_channels(img, width, height, bayer_pattern):
+    if bayer_pattern == "RGGB":
+        R = img[::2, ::2]
+        GR = img[::2, 1::2]
+        GB = img[1::2, ::2]
+        B = img[1::2, 1::2]
+    elif bayer_pattern == "BGGR":
+        B = img[::2, ::2]
+        GB = img[::2, 1::2]
+        GR = img[1::2, ::2]
+        R = img[1::2, 1::2]
+    elif bayer_pattern == "GRBG":
+        GR = img[::2, ::2]
+        R = img[::2, 1::2]
+        B = img[1::2, ::2]
+        GB = img[1::2, 1::2]
+    elif bayer_pattern == "GBRG":
+        GB = img[::2, ::2]
+        B = img[::2, 1::2]
+        R = img[1::2, ::2]
+        GR = img[1::2, 1::2]
+    else:
+        print("unsupport bayer pattern:", bayer_pattern)
+
+    return R, GR, GB, B
+
+def sample_separate(img):
+    C1 = img[::2, ::2]
+    C2 = img[::2, 1::2]
+    C3 = img[1::2, ::2]
+    C4 = img[1::2, 1::2]
+    return C1, C2, C3, C4
+
+def mono_cumuhistogram(img, max_val=255):
+    hist, bins = np.histogram(img.flatten(), bins=range(0, max_val + 1))
+    # 累积直方图
+    cumsum = np.cumsum(hist)
+    return cumsum
+
+def mono_average(img):
+    return np.mean(img)
+
+def bayer_cumuhistogram(img, partten="RGGB", max_val=255):
+    R, GR, GB, B = separate_bayer_channels(img, img.shape[1], img.shape[0], partten)
+    R_hist = mono_cumuhistogram(R, max_val)
+    GR_hist = mono_cumuhistogram(GR, max_val)
+    GB_hist = mono_cumuhistogram(GB, max_val)
+    B_hist = mono_cumuhistogram(B, max_val)
+    return R_hist, GR_hist, GB_hist, B_hist
+
+def bayer_histogram(img, partten="RGGB", max_val=255):
+    R, GR, GB, B = separate_bayer_channels(img, img.shape[1], img.shape[0], partten)
+    R_hist = np.histogram(R, bins=range(0, max_val + 1))
+    GR_hist = np.histogram(GR, bins=range(0, max_val + 1))
+    GB_hist = np.histogram(GB, bins=range(0, max_val + 1))
+    B_hist = np.histogram(B, bins=range(0, max_val + 1))
+    return R_hist, GR_hist, GB_hist, B_hist
+
+def bayer_average(img, partten="RGGB"):
+    R, GR, GB, B = separate_bayer_channels(img, img.shape[1], img.shape[0], partten)
+    R_avg = mono_average(R)
+    GR_avg = mono_average(GR)
+    GB_avg = mono_average(GB)
+    B_avg = mono_average(B)
+    return R_avg, GR_avg, GB_avg, B_avg
+
+def show_bayer_cumuhistogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255):
+    # 创建一个2x2的子图网格
+    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+    
+    # 绘制每个通道的直方图到对应的子图中
+    axs[0, 0].bar(np.arange(0, max_val), R_hist, label="Red", color='red', lw=2)
+    axs[0, 0].set_title("Red Channel Histogram")
+    axs[0, 0].set_xlabel("Pixel Intensity")
+    axs[0, 0].set_ylabel("Frequency")
+    axs[0, 0].grid(True)
+    
+    axs[0, 1].bar(np.arange(0, max_val), GR_hist, label="Green (R)", color='green', lw=2)
+    axs[0, 1].set_title("Green (R) Channel Histogram")
+    axs[0, 1].set_xlabel("Pixel Intensity")
+    axs[0, 1].set_ylabel("Frequency")
+    axs[0, 1].grid(True)
+    
+    axs[1, 0].bar(np.arange(0, max_val), GB_hist, label="Green (B)", color='limegreen', lw=2)
+    axs[1, 0].set_title("Green (B) Channel Histogram")
+    axs[1, 0].set_xlabel("Pixel Intensity")
+    axs[1, 0].set_ylabel("Frequency")
+    axs[1, 0].grid(True)
+    
+    axs[1, 1].bar(np.arange(0, max_val), B_hist, label="Blue", color='blue', lw=2)
+    axs[1, 1].set_title("Blue Channel Histogram")
+    axs[1, 1].set_xlabel("Pixel Intensity")
+    axs[1, 1].set_ylabel("Frequency")
+    axs[1, 1].grid(True)
+    
+    # 调整布局
+    plt.tight_layout()
+    
+    # 显示图像
+    plt.show()
+
+def show_bayer_histogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255):
+    # 创建一个2x2的子图网格
+    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+    # 绘制每个通道的直方图到对应的子图中
+    axs[0, 0].bar(np.arange(0, max_val), R_hist[0], label="Red", color='red', lw=2)
+    axs[0, 0].set_title("Red Channel Histogram")
+    axs[0, 0].set_xlabel("Pixel Intensity")
+    axs[0, 0].set_ylabel("Frequency")
+    axs[0, 0].grid(True)
+    
+    axs[0, 1].bar(np.arange(0, max_val), GR_hist[0], label="Green (R)", color='green', lw=2)
+    axs[0, 1].set_title("Green (R) Channel Histogram")
+    axs[0, 1].set_xlabel("Pixel Intensity")
+    axs[0, 1].set_ylabel("Frequency")
+    axs[0, 1].grid(True)
+    
+    axs[1, 0].bar(np.arange(0, max_val), GB_hist[0], label="Green (B)", color='limegreen', lw=2)
+    axs[1, 0].set_title("Green (B) Channel Histogram")
+    axs[1, 0].set_xlabel("Pixel Intensity")
+    axs[1, 0].set_ylabel("Frequency")
+    axs[1, 0].grid(True)
+    
+    axs[1, 1].bar(np.arange(0, max_val), B_hist[0], label="Blue", color='blue', lw=2)
+    axs[1, 1].set_title("Blue Channel Histogram")
+    axs[1, 1].set_xlabel("Pixel Intensity")
+    axs[1, 1].set_ylabel("Frequency")
+    axs[1, 1].grid(True)
+    
+    # 调整布局
+    plt.tight_layout()
+    
+    # 显示图像
+    plt.show()
+
+def get_region(img, x, y, w, h):
+    return img[y:y+h, x:x+w]
+
+def binning_image(img, width, height, bin_size_w, bin_size_h):
+    # 计算分块的数量
+    bin_num_w = int(width / bin_size_w)
+    bin_num_h = int(height / bin_size_h)
+    binning_image = np.empty((bin_num_h*2, bin_num_w*2), dtype=np.float32)
+    x = 0
+    y = 0
+    for i in range(bin_num_h):
+        for j in range(bin_num_w):
+            region_data = get_region(img, x, y, bin_size_w, bin_size_h)
+            C1, C2, C3, C4 = sample_separate(region_data)
+            binning_image[i*2, j*2] = np.mean(C1)
+            binning_image[i*2, j*2+1] = np.mean(C2)
+            binning_image[i*2+1, j*2] = np.mean(C3)
+            binning_image[i*2+1, j*2+1] = np.mean(C4)
+            x += bin_size_w
+        y += bin_size_h
+        x = 0
+    return binning_image
+
 
 def unpack_mipi_raw10(byte_buf):
     data = np.frombuffer(byte_buf, dtype=np.uint8)
