@@ -123,7 +123,7 @@ def image_show_plt_fake_color(img, width, height, partten):
     plt.show()
 
 # 分离Bayer raw通道
-def separate_bayer_channels(img, width, height, bayer_pattern):
+def separate_bayer_channels(img, bayer_pattern):
     if bayer_pattern == "RGGB":
         R = img[::2, ::2]
         GR = img[::2, 1::2]
@@ -149,6 +149,33 @@ def separate_bayer_channels(img, width, height, bayer_pattern):
 
     return R, GR, GB, B
 
+def bayer_channel_intergration(R, GR, GB, B, bayer_pattern):
+    img = np.zeros((R.shape[0] * 4, R.shape[1] * 4), dtype=np.uint16)
+    if bayer_pattern == "RGGB":
+        img[::2, ::2] = R
+        img[::2, 1::2] = GR
+        img[1::2, ::2] = GB
+        img[1::2, 1::2] = B
+    elif bayer_pattern == "BGGR":
+        img[::2, ::2] = B
+        img[::2, 1::2] = GB
+        img[1::2, ::2] = GR
+        img[1::2, 1::2] = R
+    elif bayer_pattern == "GRBG":
+        img[::2, ::2] = GR
+        img[::2, 1::2] = R
+        img[1::2, ::2] = B
+        img[1::2, 1::2] = GB
+    elif bayer_pattern == "GBRG":
+        img[::2, ::2] = GB
+        img[::2, 1::2] = B
+        img[1::2, ::2] = R
+        img[1::2, 1::2] = GR
+    else:
+        print("unsupport bayer pattern:", bayer_pattern)
+
+    return img
+
 def sample_separate(img):
     C1 = img[::2, ::2]
     C2 = img[::2, 1::2]
@@ -166,7 +193,7 @@ def mono_average(img):
     return np.mean(img)
 
 def bayer_cumuhistogram(img, partten="RGGB", max_val=255):
-    R, GR, GB, B = separate_bayer_channels(img, img.shape[1], img.shape[0], partten)
+    R, GR, GB, B = separate_bayer_channels(img, partten)
     R_hist = mono_cumuhistogram(R, max_val)
     GR_hist = mono_cumuhistogram(GR, max_val)
     GB_hist = mono_cumuhistogram(GB, max_val)
@@ -174,7 +201,7 @@ def bayer_cumuhistogram(img, partten="RGGB", max_val=255):
     return R_hist, GR_hist, GB_hist, B_hist
 
 def bayer_histogram(img, partten="RGGB", max_val=255):
-    R, GR, GB, B = separate_bayer_channels(img, img.shape[1], img.shape[0], partten)
+    R, GR, GB, B = separate_bayer_channels(img, partten)
     R_hist = np.histogram(R, bins=range(0, max_val + 1))
     GR_hist = np.histogram(GR, bins=range(0, max_val + 1))
     GB_hist = np.histogram(GB, bins=range(0, max_val + 1))
@@ -182,7 +209,7 @@ def bayer_histogram(img, partten="RGGB", max_val=255):
     return R_hist, GR_hist, GB_hist, B_hist
 
 def bayer_average(img, partten="RGGB"):
-    R, GR, GB, B = separate_bayer_channels(img, img.shape[1], img.shape[0], partten)
+    R, GR, GB, B = separate_bayer_channels(img, partten)
     R_avg = mono_average(R)
     GR_avg = mono_average(GR)
     GB_avg = mono_average(GB)
@@ -281,6 +308,51 @@ def binning_image(img, width, height, bin_size_w, bin_size_h):
         x = 0
     return binning_image
 
+def apply_shading_to_image(img, block_size, shading_R, shading_GR, shading_GB, shading_B, partten="RGGB"):
+    R, GR, GB, B = separate_bayer_channels(img, "RGGB")
+    HH, HW = R.shape
+    # 如果size不整除，需要调整
+    size_new = (HH + block_size, HW + block_size)
+    # 插值
+    extend_R_gain_map = cv2.resize(shading_R, size_new, interpolation=cv2.INTER_CUBIC)
+    extend_GR_gain_map = cv2.resize(shading_GR, size_new, interpolation=cv2.INTER_CUBIC)
+    extend_GB_gain_map = cv2.resize(shading_GB, size_new, interpolation=cv2.INTER_CUBIC)
+    extend_B_gain_map = cv2.resize(shading_B, size_new, interpolation=cv2.INTER_CUBIC)
+    half_block_size = block_size // 2
+
+    # 裁剪到原图大小
+    R_gain_map = extend_R_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
+    GR_gain_map = extend_GR_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
+    GB_gain_map = extend_GB_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
+    B_gain_map = extend_B_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
+
+    R_new = R * R_gain_map
+    GR_new = GR * GR_gain_map
+    GB_new = GB * GB_gain_map
+    B_new = B * B_gain_map
+
+    new_img = bayer_channel_intergration(R_new, GR_new, GB_new, B_new, partten)
+    new_img = np.clip(new_img, min=0, max=1023)
+    return new_img
+
+def pack_mipi_raw10(image_data, filename):
+    height, width = image_data.shape
+    packed_data = []
+
+    for row in range(height):
+        for col in range(0, width, 4):
+            pixels = image_data[row, col:col+4]
+            packed_bytes = []
+            for pixel in pixels:
+                packed_bytes.append(pixel >> 2)
+            last_byte = 0
+            for i, pixel in enumerate(pixels):
+                last_byte |= ((pixel & 0x03) << (i * 2))
+            packed_bytes.append(last_byte)
+            packed_data.extend(packed_bytes)
+
+    with open(filename, 'wb') as f:
+        f.write(bytearray(packed_data))
 
 def unpack_mipi_raw10(byte_buf):
     data = np.frombuffer(byte_buf, dtype=np.uint8)
