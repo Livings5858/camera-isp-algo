@@ -40,41 +40,48 @@ def _read_raw_mipi10(path, height, width):
     raw_data = raw_data[:, 0:width]
     return raw_data
 
-def image_show_cv2(img, color_order=cv2.COLOR_BayerBG2BGR):
+def image_show_cv2(img, color_order=cv2.COLOR_BayerBG2BGR, save_path=None):
     # img = cv2.cvtColor(img, color_order)
-    cv2.imshow("Raw Image", img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if save_path is not None:
+        cv2.imwrite(save_path, img)
+    else:
+        cv2.imshow("Raw Image", img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
-def image_show_cv2_thumnail(img, color_order=cv2.COLOR_BayerBG2BGR):
+def image_show_cv2_thumnail(img, color_order=cv2.COLOR_BayerBG2BGR, save_path=None):
     # img = cv2.cvtColor(img, color_order)
     # 缩小图片尺寸 DownScale by 8
     img = cv2.resize(img, (0, 0), fx=0.125, fy=0.125)
-    cv2.imshow("Raw Image", img)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    if save_path is not None:
+        cv2.imwrite(save_path, img)
+    else:
+        cv2.imshow("Raw Image", img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
-def image_show_plt(img, width, height):
+def image_show_plt(img, width, height, save_path=None):
     plt.figure(num="Raw Image", figsize=(width / 100, height / 100))
     plt.imshow(img, cmap="gray", interpolation="bicubic")
     plt.axis("off")
-    # 保存图片
-    # plt.savefig("data/raw_image.jpg", dpi=100, bbox_inches='tight', pad_inches = -0.1)
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
 
-
-def image_show_plt_thumnail(img, width, height):
+def image_show_plt_thumnail(img, width, height, save_path=None):
     # 缩小图片尺寸 DownScale by 8
     plt.figure(num="Raw Image", figsize=(width / 800, height / 800))
     plt.imshow(img, cmap="gray", interpolation="bicubic")
     plt.axis("off")
-    # 保存图片
-    # plt.savefig("data/raw_image_thumnail.jpg", dpi=100, bbox_inches='tight', pad_inches = -0.1)
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
 
-def image_show_plt_3D(img, width, height):
+def image_show_plt_3D(img, width, height, save_path=None):
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     x = np.arange(0, width, 1)
@@ -82,9 +89,12 @@ def image_show_plt_3D(img, width, height):
     X, Y = np.meshgrid(x, y)
     Z = img
     ax.plot_surface(X, Y, Z, cmap='rainbow', rstride=1, cstride=1)
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
 
-def image_show_plt_fake_color(img, width, height, partten):
+def image_show_plt_fake_color(img, width, height, partten, save_path=None):
     x = width / 100
     y = height / 100
     rgb_img = np.zeros(shape = (height, width, 3))
@@ -120,7 +130,28 @@ def image_show_plt_fake_color(img, width, height, partten):
     plt.figure(num="Fake color Raw Image", figsize=(x, y))
     plt.imshow(rgb_img, interpolation="bicubic", vmax=1.0, vmin=0.0)
     plt.axis("off")
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
+
+def image_show_bayer_channels(R, Gr, Gb, B, save_path=None):
+    fig, axs = plt.subplots(1, 4, figsize=(16, 4))
+    axs[0].imshow(R, cmap='gray')
+    axs[0].set_title("Red Channel")
+    axs[1].imshow(Gr, cmap='gray')
+    axs[1].set_title("Green (Red Row) Channel")
+    axs[2].imshow(Gb, cmap='gray')
+    axs[2].set_title("Green (Blue Row) Channel")
+    axs[3].imshow(B, cmap='gray')
+    axs[3].set_title("Blue Channel")
+    for ax in axs:
+        ax.axis('off')
+    plt.tight_layout()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
 
 # 分离Bayer raw通道
 def separate_bayer_channels(img, bayer_pattern):
@@ -150,7 +181,7 @@ def separate_bayer_channels(img, bayer_pattern):
     return R, GR, GB, B
 
 def bayer_channel_intergration(R, GR, GB, B, bayer_pattern):
-    img = np.zeros((R.shape[0] * 4, R.shape[1] * 4), dtype=np.uint16)
+    img = np.zeros((R.shape[0] * 2, R.shape[1] * 2), dtype=np.uint16)
     if bayer_pattern == "RGGB":
         img[::2, ::2] = R
         img[::2, 1::2] = GR
@@ -216,7 +247,7 @@ def bayer_average(img, partten="RGGB"):
     B_avg = mono_average(B)
     return R_avg, GR_avg, GB_avg, B_avg
 
-def show_bayer_cumuhistogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255):
+def show_bayer_cumuhistogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255, save_path=None):
     # 创建一个2x2的子图网格
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
     
@@ -249,9 +280,12 @@ def show_bayer_cumuhistogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255):
     plt.tight_layout()
     
     # 显示图像
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
 
-def show_bayer_histogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255):
+def show_bayer_histogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255, save_path=None):
     # 创建一个2x2的子图网格
     fig, axs = plt.subplots(2, 2, figsize=(12, 10))
     # 绘制每个通道的直方图到对应的子图中
@@ -283,7 +317,10 @@ def show_bayer_histogram(R_hist, GR_hist, GB_hist, B_hist, max_val=255):
     plt.tight_layout()
     
     # 显示图像
-    plt.show()
+    if save_path is not None:
+        plt.savefig(save_path, dpi=100, bbox_inches='tight', pad_inches = -0.1)
+    else:
+        plt.show()
 
 def get_region(img, x, y, w, h):
     return img[y:y+h, x:x+w]
@@ -311,29 +348,80 @@ def binning_image(img, width, height, bin_size_w, bin_size_h):
 def apply_shading_to_image(img, block_size, shading_R, shading_GR, shading_GB, shading_B, partten="RGGB"):
     R, GR, GB, B = separate_bayer_channels(img, "RGGB")
     HH, HW = R.shape
+
     # 如果size不整除，需要调整
-    size_new = (HH + block_size, HW + block_size)
+    size_new_w = (HW + block_size - 1) // block_size * block_size
+    size_new_h = (HH + block_size - 1) // block_size * block_size
+    size_new = (size_new_w, size_new_h)
+
     # 插值
     extend_R_gain_map = cv2.resize(shading_R, size_new, interpolation=cv2.INTER_CUBIC)
     extend_GR_gain_map = cv2.resize(shading_GR, size_new, interpolation=cv2.INTER_CUBIC)
     extend_GB_gain_map = cv2.resize(shading_GB, size_new, interpolation=cv2.INTER_CUBIC)
     extend_B_gain_map = cv2.resize(shading_B, size_new, interpolation=cv2.INTER_CUBIC)
-    half_block_size = block_size // 2
+
+    left_padding = (size_new_w - HW) // 2
+    top_padding = (size_new_h - HH) // 2
 
     # 裁剪到原图大小
-    R_gain_map = extend_R_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
-    GR_gain_map = extend_GR_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
-    GB_gain_map = extend_GB_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
-    B_gain_map = extend_B_gain_map[half_block_size:HH+half_block_size, half_block_size:HW+half_block_size]
+    R_gain_map = extend_R_gain_map[top_padding : HH + top_padding, left_padding : HW + left_padding]
+    GR_gain_map = extend_GR_gain_map[top_padding : HH + top_padding, left_padding : HW + left_padding]
+    GB_gain_map = extend_GB_gain_map[top_padding : HH + top_padding, left_padding : HW + left_padding]
+    B_gain_map = extend_B_gain_map[top_padding : HH + top_padding, left_padding : HW + left_padding]
+
 
     R_new = R * R_gain_map
     GR_new = GR * GR_gain_map
     GB_new = GB * GB_gain_map
     B_new = B * B_gain_map
 
+    display_rggb_3D(R=R, GR=GR, GB=GB, B=B, save_path="data/out/statistics_raw.png")
+    display_rggb_3D(R_gain_map, GR_gain_map, GB_gain_map, B_gain_map, save_path="data/out/statistics_gain_maps.png")
+    display_rggb_3D(R_new, GR_new, GB_new, B_new, save_path="data/out/statistics_new_raw.png")
+
     new_img = bayer_channel_intergration(R_new, GR_new, GB_new, B_new, partten)
     new_img = np.clip(new_img, min=0, max=1023)
     return new_img
+
+def apply_shading_to_image_ratio(img, block_size, shading_R, shading_GR, shading_GB, shading_B, shading_ratio, partten="RGGB"):
+    luma_shading = (shading_GR + shading_GB) / 2
+
+    R_color_shading = shading_R / luma_shading
+    GR_color_shading = shading_GR / luma_shading
+    GB_color_shading = shading_GB / luma_shading
+    B_color_shading = shading_B / luma_shading
+
+    new_luma_shading = (luma_shading - 1) * shading_ratio + 1
+
+    new_shading_R = R_color_shading * new_luma_shading
+    new_shading_GR = GR_color_shading * new_luma_shading
+    new_shading_GB = GB_color_shading * new_luma_shading
+    new_shading_B = B_color_shading * new_luma_shading
+
+    return apply_shading_to_image(img, block_size, new_shading_R, new_shading_GR, new_shading_GB, new_shading_B, partten)
+
+def display_rggb_3D(R, GR, GB, B, save_path=None, cmap='rainbow'):
+    channels = [R, GR, GB, B]
+    titles = ['R', 'GR', 'GB', 'B']
+
+    fig = plt.figure(figsize=(40, 10))
+
+    for i, val in enumerate(channels):
+        ax = fig.add_subplot(1, 4, i + 1, projection='3d')
+        x = np.arange(val.shape[1])
+        y = np.arange(val.shape[0])
+        x, y = np.meshgrid(x, y)
+        ax.plot_surface(x, y, val, cmap=cmap, edgecolor='k', linewidth=0.5)
+        ax.set_title(titles[i])
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Val')
+
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(save_path)
+    else:
+        plt.show()
 
 def pack_mipi_raw10(image_data, filename):
     height, width = image_data.shape
@@ -470,7 +558,3 @@ def yuv420sp_to_rgb(yuv420sp, width, height):
     
     return rgb_image
 
-if __name__ == "__main__":
-    # test_read_raw_mipi10()
-    # test_image_show()
-    open_raw_image("data/4608_3456.raw", 4608, 3456, 10)
